@@ -66,20 +66,17 @@ if __name__ == '__main__':
 
     workerScheduler = WorkScheduler(config=config)
 
-    video_to_read = "sample-mp4/asl.mp4"
-
-    capture = cv2.VideoCapture(video_to_read)
-    end = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    capture = cv2.VideoCapture(0)
+    end = 200
 
     capture.set(1, 0)
 
 
-    for idx in range(0, end, 1000):
+    for idx in range(0, end):
         ret, frame = capture.read()
 
         if ret:
             workerScheduler.add_work([frame, idx])
-            capture.set(cv2.CAP_PROP_POS_FRAMES, idx)
         else:
             capture.release()
             break

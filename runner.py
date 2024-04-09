@@ -1,26 +1,37 @@
 from multiprocessing import Process, Queue
-import random
+from mmpose.apis import MMPoseInferencer
+import pickle
 import cv2
 import os
 
+
 class QueryWorker(Process):
 
-    def __init__(self, queue, resultsFromChildren, savePath):
+    def __init__(self, queue, resultsFromChildren):
         super().__init__()
 
-        self.savePath = savePath
+        self.screenshotPath = "extracted-screenshots"
+        self.filePath = "extracted-files"
         self.queue = queue
         self.results = resultsFromChildren
+        self.inferencer = MMPoseInferencer(
+           "wholebody"
+        )
 
     def run(self):
         for data in iter(self.queue.get, None):
             self.processWork(data)
+        print("DONE")
 
     def processWork(self, entity):
-        save_path = os.path.join(self.savePath, "{:010d}.jpg".format(entity[1]))
-        print(save_path)
-        cv2.imwrite(save_path, entity[0])
-        result = random.randint(1, 2)
+        screenshot_path = os.path.join(self.screenshotPath, "{:010d}.jpg".format(entity[1]))
+        result_path = self.filePath
+
+        cv2.imwrite(screenshot_path, entity[0])
+
+        result_generator = self.inferencer(screenshot_path, show=False, out_dir=result_path)
+        result = next(result_generator)
+
         self.results.put([entity[1], result])
 
 
@@ -35,7 +46,7 @@ class WorkScheduler():
 
         print("Setting up workers...")
         for worker in range(self.numWorkers):
-            self.workerPool.append(QueryWorker(self.workToDo, self.resultsFromChildren, "extracted-files"))
+            self.workerPool.append(QueryWorker(self.workToDo, self.resultsFromChildren))
 
         for worker in range(self.numWorkers):
             self.workerPool[worker].start()
@@ -52,17 +63,12 @@ class WorkScheduler():
 
         combined_results = {}
 
-        while (not self.resultsFromChildren.empty()):
-            result = self.resultsFromChildren.get()
-            combined_results[result[0]] = result[1]
-
         return combined_results
 
 
 if __name__ == '__main__':
 
-
-    config = {"numWorkers": 2}
+    config = {"numWorkers": 1}
 
     workerScheduler = WorkScheduler(config=config)
 
@@ -70,7 +76,6 @@ if __name__ == '__main__':
     end = 200
 
     capture.set(1, 0)
-
 
     for idx in range(0, end):
         ret, frame = capture.read()
@@ -83,4 +88,5 @@ if __name__ == '__main__':
 
     capture.release()
     results = workerScheduler.get_results()
-    print(results)
+
+    exit(0)
